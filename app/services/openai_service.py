@@ -126,38 +126,41 @@ def _live_photo_chat(self, payload) -> str:
         ]
     )
 
-    content = [{
-        "type": "input_text",
-        "text": (
-            system + "\n\n"
-            "IMPORTANT:\n"
-            "- This is a real live AI chat request. Produce a new answer now.\n"
-            "- Do not repeat the previous assistant answer.\n"
-            "- The latest question is authoritative.\n"
-            "- If locale is tr, answer in Turkish only except Latin scientific names.\n\n"
-            + _plant_context_text(payload.scopeLabel, payload.plant, len(photos)) +
-            "\nPrevious chat context (do not repeat, only use for continuity):\n" + history_text +
-            "\n\nLATEST USER QUESTION:\n" + question +
-            "\n\nAnswer only about this selected plant or uploaded photos. Keep it concise and specific."
-        ),
-    }]
+    user_text = (
+        "IMPORTANT:\n"
+        "- This is a real live AI chat request. Produce a new answer now.\n"
+        "- Do not repeat previous assistant answers.\n"
+        "- The latest question is authoritative.\n"
+        "- If locale is tr, answer in Turkish only except Latin scientific names.\n"
+        "- Keep the answer short, useful and specific to the selected plant/photo.\n\n"
+        + _plant_context_text(payload.scopeLabel, payload.plant, len(photos)) +
+        "\nPrevious chat context (do not repeat, only use for continuity):\n" + history_text +
+        "\n\nLATEST USER QUESTION:\n" + question +
+        "\n\nAnswer only about this selected plant or uploaded photos."
+    )
+
+    # Use Chat Completions for live chat because it is stable on the pinned OpenAI SDK.
+    content: list[dict[str, object]] = [{"type": "text", "text": user_text}]
     for photo in photos:
         if photo.base64:
             content.append({
-                "type": "input_image",
-                "image_url": f"data:{photo.mimeType};base64,{photo.base64}",
+                "type": "image_url",
+                "image_url": {"url": f"data:{photo.mimeType};base64,{photo.base64}"},
             })
 
-    response = self.client.responses.create(
+    completion = self.client.chat.completions.create(
         model=self.model,
-        input=[{"role": "user", "content": content}],
-        instructions=system,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": content},
+        ],
         temperature=0.35,
-        max_output_tokens=260,
+        max_tokens=260,
     )
-    text = getattr(response, "output_text", None)
+
+    text = completion.choices[0].message.content if completion.choices else None
     if not text:
-        raise ValueError("OpenAI response did not include output_text.")
+        raise ValueError("OpenAI chat completion did not include message content.")
     return text.strip()
 
 OpenAIPlantService.live_photo_chat = _live_photo_chat

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+import traceback
 from openai import APIConnectionError, APITimeoutError, AuthenticationError, RateLimitError, BadRequestError
 
 from app.models.contracts import DiagnoseRequest, PlantScreenResponse, ScanAnalyzeResponse, PlantLivePhotoChatRequest, PlantLivePhotoChatResponse
@@ -11,7 +12,9 @@ service = OpenAIPlantService()
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
-def _translate_exc(exc: Exception) -> HTTPException:
+def _translate_exc(exc: Exception, context: str = "AI") -> HTTPException:
+    print(f"BOTANISTIQ_BACKEND_ERROR[{context}]: {type(exc).__name__}: {exc}", flush=True)
+    traceback.print_exc()
     if isinstance(exc, AuthenticationError):
         return HTTPException(status_code=500, detail="OPENAI_AUTH_INVALID")
     if isinstance(exc, (APIConnectionError, APITimeoutError)):
@@ -20,14 +23,14 @@ def _translate_exc(exc: Exception) -> HTTPException:
         return HTTPException(status_code=429, detail="OPENAI_RATE_LIMIT")
     if isinstance(exc, BadRequestError):
         return HTTPException(status_code=500, detail=f"OPENAI_BAD_REQUEST:{exc}")
-    return HTTPException(status_code=500, detail=f"SCAN_ANALYZE_FAILED:{exc}")
+    return HTTPException(status_code=500, detail=f"{context}_FAILED:{type(exc).__name__}:{exc}")
 
 @router.post("/screen-plant", response_model=PlantScreenResponse)
 def screen_plant(payload: DiagnoseRequest) -> PlantScreenResponse:
     try:
         return service.screen_for_plant(payload.image_url, payload.locale, payload.notes)
     except Exception as exc:  # noqa: BLE001
-        raise _translate_exc(exc) from exc
+        raise _translate_exc(exc, context='SCAN_ANALYZE') from exc
 
 @router.post("/scan-analyze", response_model=ScanAnalyzeResponse)
 def scan_analyze(payload: DiagnoseRequest) -> ScanAnalyzeResponse:
@@ -64,7 +67,7 @@ def scan_analyze(payload: DiagnoseRequest) -> ScanAnalyzeResponse:
             plant_parent=plant_parent_result,
         )
     except Exception as exc:  # noqa: BLE001
-        raise _translate_exc(exc) from exc
+        raise _translate_exc(exc, context='SCAN_ANALYZE') from exc
 
 
 @router.post("/plant-live-photo-chat", response_model=PlantLivePhotoChatResponse)
@@ -87,4 +90,4 @@ def plant_live_photo_chat(payload: PlantLivePhotoChatRequest) -> PlantLivePhotoC
 
         return PlantLivePhotoChatResponse(answer=service.live_photo_chat(payload), offTopic=False)
     except Exception as exc:  # noqa: BLE001
-        raise _translate_exc(exc) from exc
+        raise _translate_exc(exc, context='LIVE_CHAT') from exc
