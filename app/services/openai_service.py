@@ -67,16 +67,18 @@ class OpenAIPlantService:
 def _plant_live_system(locale: str) -> str:
     if locale == "tr":
         return (
-            "Sen Botanistiq uygulamasında çalışan bitki fotoğrafı asistanısın. "
+            "Sen Botanistiq uygulamasındaki CANLI AI bitki asistanısın. "
+            "Her istek OpenAI üzerinden yeni cevap üretir; şablon veya sabit cevap verme. "
             "Sadece seçili kayıtlı bitki veya bu oturumda yüklenen fotoğraflar hakkında cevap ver. "
-            "Konu dışı, kod, finans, siyaset, hava durumu, futbol veya genel sohbet istenirse kibarca reddet. "
-            "Önceki cevabı aynen tekrarlama. Son soruya özel, kısa ve uygulanabilir cevap ver. "
-            "Fotoğrafta emin olmadığın şeyi kesin hastalık gibi söyleme."
+            "Konu dışı soruları kibarca reddet. Önceki cevapları tekrar etme. "
+            "Son kullanıcının son sorusunu doğrudan cevapla. Cevap Türkçe, kısa, net ve uygulanabilir olsun. "
+            "Gerekiyorsa 'şimdi yap' adımını bir cümleyle söyle. Emin olmadığın görsel bulguyu kesin hastalık gibi söyleme."
         )
     return (
-        "You are the plant-photo assistant inside Botanistiq. "
+        "You are the LIVE AI plant assistant inside Botanistiq. "
+        "Generate a fresh OpenAI answer for every request; do not use fixed templates. "
         "Answer only about the selected saved plant or uploaded photos in this session. "
-        "Refuse unrelated topics. Do not repeat previous answers. Be short and actionable."
+        "Refuse unrelated topics. Do not repeat previous answers. Answer the latest user question directly, briefly and actionably."
     )
 
 def _plant_context_text(scope_label: str, plant: dict | None, photo_count: int) -> str:
@@ -114,13 +116,29 @@ def _live_photo_chat(self, payload) -> str:
     system = payload.system_instruction or _plant_live_system(payload.locale)
     max_photos = 1
     photos = (payload.photos or [])[:max_photos]
+    history = (payload.history or [])[-4:]
+
+    history_text = "\n".join(
+        [
+            f"{getattr(item, 'role', 'user')}: {getattr(item, 'text', '')[:500]}"
+            for item in history
+            if getattr(item, "text", "").strip()
+        ]
+    )
+
     content = [{
         "type": "input_text",
         "text": (
-            system + "\n\n" +
-            _plant_context_text(payload.scopeLabel, payload.plant, len(photos)) +
-            "\nUser question: " + question +
-            "\nAnswer only about this selected plant or uploaded photos."
+            system + "\n\n"
+            "IMPORTANT:\n"
+            "- This is a real live AI chat request. Produce a new answer now.\n"
+            "- Do not repeat the previous assistant answer.\n"
+            "- The latest question is authoritative.\n"
+            "- If locale is tr, answer in Turkish only except Latin scientific names.\n\n"
+            + _plant_context_text(payload.scopeLabel, payload.plant, len(photos)) +
+            "\nPrevious chat context (do not repeat, only use for continuity):\n" + history_text +
+            "\n\nLATEST USER QUESTION:\n" + question +
+            "\n\nAnswer only about this selected plant or uploaded photos. Keep it concise and specific."
         ),
     }]
     for photo in photos:
@@ -134,8 +152,8 @@ def _live_photo_chat(self, payload) -> str:
         model=self.model,
         input=[{"role": "user", "content": content}],
         instructions=system,
-        temperature=0.15,
-        max_output_tokens=220,
+        temperature=0.35,
+        max_output_tokens=260,
     )
     text = getattr(response, "output_text", None)
     if not text:
