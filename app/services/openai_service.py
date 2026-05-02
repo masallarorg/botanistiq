@@ -62,3 +62,84 @@ class OpenAIPlantService:
         instruction = 'Return only valid JSON: {"placement": "indoor"|"balcony"|"garden"|"mixed", "placement_advice": string, "pet_safety": string, "child_safety": string, "vacation_tip": string, "soil_tip": string, "watering_tip": string, "watering_interval_days": integer, "soil_change_interval_days": integer}.'
         user_text = f"Language: {locale}. Plant: {plant_name}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create home care guidance."
         return PlantParentProfileResponse.model_validate(self._responses_json(instruction, user_text))
+
+
+def _plant_live_system(locale: str) -> str:
+    if locale == "tr":
+        return (
+            "Sen Botanistiq uygulamasında çalışan bitki fotoğrafı asistanısın. "
+            "Sadece seçili kayıtlı bitki veya bu oturumda yüklenen fotoğraflar hakkında cevap ver. "
+            "Konu dışı, kod, finans, siyaset, hava durumu, futbol veya genel sohbet istenirse kibarca reddet. "
+            "Önceki cevabı aynen tekrarlama. Son soruya özel, kısa ve uygulanabilir cevap ver. "
+            "Fotoğrafta emin olmadığın şeyi kesin hastalık gibi söyleme."
+        )
+    return (
+        "You are the plant-photo assistant inside Botanistiq. "
+        "Answer only about the selected saved plant or uploaded photos in this session. "
+        "Refuse unrelated topics. Do not repeat previous answers. Be short and actionable."
+    )
+
+def _plant_context_text(scope_label: str, plant: dict | None, photo_count: int) -> str:
+    plant = plant or {}
+    return (
+        f"Selected scope: {scope_label}\n"
+        f"Plant name: {plant.get('name', scope_label)}\n"
+        f"Health score: {plant.get('health_score', 'unknown')}\n"
+        f"Severity: {plant.get('severity', 'unknown')}\n"
+        f"Diagnosis summary: {plant.get('diagnosis_summary', '')}\n"
+        f"Likely causes: {plant.get('likely_causes', [])}\n"
+        f"Immediate actions: {plant.get('immediate_actions', [])}\n"
+        f"Avoid actions: {plant.get('avoid_actions', [])}\n"
+        f"Watering tip: {plant.get('watering_tip', '')}\n"
+        f"Soil tip: {plant.get('soil_tip', '')}\n"
+        f"Light advice: {plant.get('light_advice', '')}\n"
+        f"Placement advice: {plant.get('placement_advice', '')}\n"
+        f"Uploaded photo count: {photo_count}\n"
+    )
+
+def _is_live_chat_off_topic(question: str) -> bool:
+    q = question.lower()
+    blocked = [
+        "bitcoin", "kripto", "crypto", "borsa", "hisse", "futbol", "maç", "mac",
+        "siyaset", "seçim", "secim", "kod", "flutter", "python", "hava durumu",
+        "film", "dizi", "aşk", "ask", "ilişki", "iliski", "yemek tarifi",
+    ]
+    return any(item in q for item in blocked)
+
+def _live_photo_chat(self, payload) -> str:
+    question = (payload.question or "").strip()
+    if not question:
+        return "Lütfen bu bitki hakkında bir soru yaz."
+
+    system = payload.system_instruction or _plant_live_system(payload.locale)
+    max_photos = 4 if payload.premium else 1
+    photos = (payload.photos or [])[:max_photos]
+    content = [{
+        "type": "input_text",
+        "text": (
+            system + "\n\n" +
+            _plant_context_text(payload.scopeLabel, payload.plant, len(photos)) +
+            "\nUser question: " + question +
+            "\nAnswer only about this selected plant or uploaded photos."
+        ),
+    }]
+    for photo in photos:
+        if photo.base64:
+            content.append({
+                "type": "input_image",
+                "image_url": f"data:{photo.mimeType};base64,{photo.base64}",
+            })
+
+    response = self.client.responses.create(
+        model=self.model,
+        input=[{"role": "user", "content": content}],
+        instructions=system,
+        temperature=0.25,
+        max_output_tokens=420,
+    )
+    text = getattr(response, "output_text", None)
+    if not text:
+        raise ValueError("OpenAI response did not include output_text.")
+    return text.strip()
+
+OpenAIPlantService.live_photo_chat = _live_photo_chat

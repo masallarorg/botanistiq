@@ -1,0 +1,21 @@
+{
+  "locale": "tr",
+  "mode": "only_selected_plant_or_uploaded_photos",
+  "premium": true,
+  "scopeId": "live_test",
+  "scopeLabel": "test bitkisi",
+  "plant": {
+    "name": "Monstera",
+    "health_score": 72,
+    "diagnosis_summary": "Yapraklarda sararma ve uç kuruması görülüyor.",
+    "watering_tip": "Toprağın üst 2 cm kısmı kuruyunca sulayın.",
+    "light_advice": "Aydınlık ama direkt güneş almayan konum önerilir."
+  },
+  "photos": [],
+  "question": "Yaprak uçları neden kuruyor, bugün ne yapmalıyım?",
+  "history": [],
+  "guardrails": {
+    "answer_only_about_selected_plant_or_photos": true,
+    "refuse_off_topic": true
+  }
+}

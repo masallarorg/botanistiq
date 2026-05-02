@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from openai import APIConnectionError, APITimeoutError, AuthenticationError, RateLimitError, BadRequestError
 
-from app.models.contracts import DiagnoseRequest, PlantScreenResponse, ScanAnalyzeResponse
+from app.models.contracts import DiagnoseRequest, PlantScreenResponse, ScanAnalyzeResponse, PlantLivePhotoChatRequest, PlantLivePhotoChatResponse
 from app.services.openai_service import OpenAIPlantService
 
 router = APIRouter(prefix="/api/v1", tags=["plant-ai"])
@@ -63,5 +63,28 @@ def scan_analyze(payload: DiagnoseRequest) -> ScanAnalyzeResponse:
             care_plan=care_plan_result,
             plant_parent=plant_parent_result,
         )
+    except Exception as exc:  # noqa: BLE001
+        raise _translate_exc(exc) from exc
+
+
+@router.post("/plant-live-photo-chat", response_model=PlantLivePhotoChatResponse)
+def plant_live_photo_chat(payload: PlantLivePhotoChatRequest) -> PlantLivePhotoChatResponse:
+    try:
+        q = (payload.question or "").lower()
+        off_topic_words = [
+            "bitcoin", "kripto", "crypto", "borsa", "hisse", "futbol", "maç", "mac",
+            "siyaset", "seçim", "secim", "kod", "flutter", "python", "hava durumu",
+            "film", "dizi", "aşk", "ask", "ilişki", "iliski", "yemek tarifi",
+        ]
+        if any(word in q for word in off_topic_words):
+            answer = (
+                "Bu sohbet sadece seçili bitki veya eklediğin fotoğraflar hakkındadır. "
+                "Bu bitkinin yaprakları, toprak, sulama, ışık, hastalık belirtisi veya kurtarma adımı hakkında sor."
+                if payload.locale == "tr"
+                else "This chat is only about the selected plant or added photos. Ask about this plant's leaves, soil, watering, light, symptoms, or rescue steps."
+            )
+            return PlantLivePhotoChatResponse(answer=answer, offTopic=True)
+
+        return PlantLivePhotoChatResponse(answer=service.live_photo_chat(payload), offTopic=False)
     except Exception as exc:  # noqa: BLE001
         raise _translate_exc(exc) from exc

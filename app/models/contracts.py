@@ -59,3 +59,30 @@ class ScanAnalyzeResponse(BaseModel):
     diagnose: DiagnoseResponse | None = None
     care_plan: CarePlanResponse | None = None
     plant_parent: PlantParentProfileResponse | None = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant", "system"]
+    text: str
+
+class ChatPhoto(BaseModel):
+    name: str = "plant.jpg"
+    mimeType: str = "image/jpeg"
+    base64: str
+
+class PlantLivePhotoChatRequest(BaseModel):
+    locale: Literal["tr", "en"] = "tr"
+    mode: str = "only_selected_plant_or_uploaded_photos"
+    premium: bool = False
+    scopeId: str
+    scopeLabel: str
+    plant: dict | None = None
+    photos: list[ChatPhoto] = Field(default_factory=list)
+    question: str
+    history: list[ChatMessage] = Field(default_factory=list)
+    guardrails: dict = Field(default_factory=dict)
+    system_instruction: str | None = None
+
+class PlantLivePhotoChatResponse(BaseModel):
+    answer: str
+    offTopic: bool = False
