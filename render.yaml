@@ -1,14 +1,16 @@
 services:
   - type: web
     name: botanistiq-api
-    env: docker
-    plan: starter
+    env: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
     autoDeploy: true
-    healthCheckPath: /health
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: BOTANISTIQ_OPENAI_MODEL
+      - key: OPENAI_MODEL
         value: gpt-4o-mini
-      - key: BOTANISTIQ_ALLOWED_ORIGINS
+      - key: ALLOWED_ORIGINS
         value: "*"
