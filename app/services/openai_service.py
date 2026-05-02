@@ -40,27 +40,27 @@ class OpenAIPlantService:
 
     def screen_for_plant(self, image_url: str, locale: str = "tr", notes: str | None = None) -> PlantScreenResponse:
         instruction = 'Return only valid JSON: {"is_plant": boolean, "reason": string, "subject_hint": string|null}.'
-        user_text = f"Language: {locale}. User notes: {notes or 'none'}. Determine whether the image is plant-related."
+        user_text = f"Language: {locale}. If locale is tr, output every user-facing string in Turkish only. Do not use English words except Latin scientific plant names. User notes: {notes or 'none'}. Determine whether the image is plant-related."
         return PlantScreenResponse.model_validate(self._responses_json(instruction, user_text, image_url))
 
     def identify(self, image_url: str, locale: str = "tr", notes: str | None = None) -> IdentifyResponse:
         instruction = 'Return only valid JSON: {"common_name": string, "scientific_name": string, "confidence": integer 0-100, "short_description": string}.'
-        user_text = f"Language: {locale}. User notes: {notes or 'none'}. Identify the plant."
+        user_text = f"Language: {locale}. If locale is tr, common_name and short_description must be Turkish only; scientific_name stays Latin. Do not output English common names. User notes: {notes or 'none'}. Identify the plant."
         return IdentifyResponse.model_validate(self._responses_json(instruction, user_text, image_url))
 
     def diagnose(self, image_url: str, locale: str = "tr", plant_name: str | None = None, notes: str | None = None) -> DiagnoseResponse:
         instruction = 'Return only valid JSON: {"health_score": integer 0-100, "severity": "low"|"medium"|"high"|"critical", "diagnosis_summary": string, "likely_causes": [{"title": string, "confidence": integer 0-100, "explanation": string}], "immediate_actions": [string], "avoid_actions": [string]}.'
-        user_text = f"Language: {locale}. Plant hint: {plant_name or 'unknown'}. User notes: {notes or 'none'}. Diagnose the plant."
+        user_text = f"Language: {locale}. If locale is tr, diagnosis_summary, likely_causes, immediate_actions and avoid_actions must be Turkish only. Keep them simple, actionable and understandable for a non-expert plant owner. Plant hint: {plant_name or 'unknown'}. User notes: {notes or 'none'}. Diagnose the plant."
         return DiagnoseResponse.model_validate(self._responses_json(instruction, user_text, image_url))
 
     def care_plan(self, locale: str, plant_name: str, diagnosis_summary: str, health_score: int, notes: str | None = None) -> CarePlanResponse:
         instruction = 'Return only valid JSON: {"today": [{"title": string, "details": string}], "this_week": [{"title": string, "details": string}], "next_check_in_days": integer, "long_term_tips": [string]}.'
-        user_text = f"Language: {locale}. Plant: {plant_name}. Health score: {health_score}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create a care plan."
+        user_text = f"Language: {locale}. If locale is tr, all task titles, details and tips must be Turkish only. Use short practical sentences. Plant: {plant_name}. Health score: {health_score}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create a simple care plan."
         return CarePlanResponse.model_validate(self._responses_json(instruction, user_text))
 
     def plant_parent_profile(self, locale: str, plant_name: str, diagnosis_summary: str, notes: str | None = None) -> PlantParentProfileResponse:
         instruction = 'Return only valid JSON: {"placement": "indoor"|"balcony"|"garden"|"mixed", "placement_advice": string, "pet_safety": string, "child_safety": string, "vacation_tip": string, "soil_tip": string, "watering_tip": string, "watering_interval_days": integer, "soil_change_interval_days": integer}.'
-        user_text = f"Language: {locale}. Plant: {plant_name}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create home care guidance."
+        user_text = f"Language: {locale}. If locale is tr, all guidance strings must be Turkish only. Do not use English. Plant: {plant_name}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create home care guidance."
         return PlantParentProfileResponse.model_validate(self._responses_json(instruction, user_text))
 
 
