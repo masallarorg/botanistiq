@@ -112,7 +112,7 @@ def _live_photo_chat(self, payload) -> str:
         return "Lütfen bu bitki hakkında bir soru yaz."
 
     system = payload.system_instruction or _plant_live_system(payload.locale)
-    max_photos = 4 if payload.premium else 1
+    max_photos = 1
     photos = (payload.photos or [])[:max_photos]
     content = [{
         "type": "input_text",
@@ -134,8 +134,8 @@ def _live_photo_chat(self, payload) -> str:
         model=self.model,
         input=[{"role": "user", "content": content}],
         instructions=system,
-        temperature=0.25,
-        max_output_tokens=420,
+        temperature=0.15,
+        max_output_tokens=220,
     )
     text = getattr(response, "output_text", None)
     if not text:
