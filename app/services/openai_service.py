@@ -59,8 +59,15 @@ class OpenAIPlantService:
         return CarePlanResponse.model_validate(self._responses_json(instruction, user_text))
 
     def plant_parent_profile(self, locale: str, plant_name: str, diagnosis_summary: str, notes: str | None = None) -> PlantParentProfileResponse:
-        instruction = 'Return only valid JSON: {"placement": "indoor"|"balcony"|"garden"|"mixed", "placement_advice": string, "pet_safety": string, "child_safety": string, "vacation_tip": string, "soil_tip": string, "watering_tip": string, "watering_interval_days": integer, "soil_change_interval_days": integer}.'
-        user_text = f"Language: {locale}. If locale is tr, all guidance strings must be Turkish only. Do not use English. Plant: {plant_name}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create home care guidance."
+        instruction = (
+            'Return only valid JSON: {"placement": "indoor"|"balcony"|"garden"|"mixed", '
+            '"placement_advice": string, "pet_safety": string, "child_safety": string, '
+            '"vacation_tip": string, "soil_tip": string, "watering_tip": string, '
+            '"watering_interval_days": integer, "soil_change_interval_days": integer}. '
+            'IMPORTANT: placement is an internal enum and must be exactly one of these English values only: '
+            'indoor, balcony, garden, mixed. Do not translate placement. User-facing guidance strings may be localized.'
+        )
+        user_text = f"Language: {locale}. If locale is tr, all guidance strings must be Turkish only, but placement must stay one of indoor, balcony, garden, mixed. Plant: {plant_name}. Diagnosis: {diagnosis_summary}. Notes: {notes or 'none'}. Create home care guidance."
         return PlantParentProfileResponse.model_validate(self._responses_json(instruction, user_text))
 
 

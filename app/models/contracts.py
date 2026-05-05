@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class DiagnoseRequest(BaseModel):
     image_url: str
@@ -46,6 +46,36 @@ class PlantParentProfileResponse(BaseModel):
     watering_tip: str
     watering_interval_days: int = Field(..., ge=1, le=60)
     soil_change_interval_days: int = Field(..., ge=14, le=730)
+
+    @field_validator("placement", mode="before")
+    @classmethod
+    def normalize_placement(cls, value: str) -> str:
+        if value is None:
+            return "mixed"
+        normalized = str(value).strip().lower()
+        mapping = {
+            "ev içi": "indoor",
+            "ev ici": "indoor",
+            "iç mekan": "indoor",
+            "ic mekan": "indoor",
+            "iç mekân": "indoor",
+            "ic mekân": "indoor",
+            "salon": "indoor",
+            "indoor": "indoor",
+            "balkon": "balcony",
+            "balcony": "balcony",
+            "bahçe": "garden",
+            "bahce": "garden",
+            "dış mekan": "garden",
+            "dis mekan": "garden",
+            "garden": "garden",
+            "karışık": "mixed",
+            "karisik": "mixed",
+            "hem iç hem dış": "mixed",
+            "hem ic hem dis": "mixed",
+            "mixed": "mixed",
+        }
+        return mapping.get(normalized, normalized)
 
 class PlantScreenResponse(BaseModel):
     is_plant: bool
